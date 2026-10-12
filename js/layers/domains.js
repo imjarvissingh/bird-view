@@ -5,7 +5,7 @@
   const FLAGS = [['newly-registered', 3], ['typosquat-like', 2], ['parked', 2], ['fast-flux', 1], ['privacy-proxy', 3], ['mx-missing', 1], ['clean', 6]];
 
   BV.registerLayer({
-    id: 'domains', short: 'Domains', label: 'Domain Intel', color: '--c-domains', glyph: '■', rate: 0.6, backfill: 90,
+    id: 'domains', group: 'Cyber', short: 'Domains', label: 'Domain Intel', color: '--c-domains', glyph: '■', rate: 0.6, backfill: 90,
     generate(rng, ctx) {
       const hosts = ctx.store.all('hosts');
       const reuse = hosts.length && rng.bool(0.4) ? rng.pick(hosts) : null; // resolves to a known host

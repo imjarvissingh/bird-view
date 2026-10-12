@@ -11,14 +11,22 @@
     ['Certificate mismatch', 'domains', [['low', 2], ['med', 3]]],
     ['Impossible travel between fixes', 'pings', [['med', 3], ['high', 2]]],
     ['Device entered watch zone', 'pings', [['low', 3], ['med', 2], ['high', 1]]],
+    ['Emergency squawk 7700', 'flights', [['high', 2], ['crit', 1]], (f) => f.phase === 'cruise'],
+    ['Transponder off over sensitive area', 'flights', [['med', 3], ['high', 1]]],
+    ['AIS transmission gap (dark vessel)', 'vessels', [['med', 3], ['high', 2]]],
+    ['Vessel loitering off chokepoint', 'vessels', [['low', 2], ['med', 3]]],
+    ['Strong earthquake', 'quakes', [['high', 3], ['crit', 1]], (q) => q.mag >= 5.5],
+    ['Wildfire cluster growing', 'fires', [['med', 3], ['high', 1]], (f) => f.frp > 60],
+    ['Cyclone landfall risk', 'storms', [['high', 2], ['crit', 1]], (s) => s.cat >= 1],
+    ['Satellite conjunction warning', 'sats', [['low', 3], ['med', 1]]],
   ];
   const SEV_RANK = { low: 1, med: 2, high: 3, crit: 4 };
 
   BV.registerLayer({
-    id: 'alerts', short: 'Alerts', label: 'Threat Alerts', color: '--c-alerts', glyph: '✕', rate: 0.35, backfill: 30,
+    id: 'alerts', group: 'Cyber', short: 'Alerts', label: 'Threat Alerts', color: '--c-alerts', glyph: '✕', rate: 0.4, backfill: 36, seedAfter: true,
     generate(rng, ctx) {
       const rule = rng.pick(RULES);
-      const pool = ctx.store.all(rule[1]);
+      const pool = ctx.store.all(rule[1]).filter((r) => !r.ended && (!rule[3] || rule[3](r)));
       if (!pool.length) return null;
       const src = rng.pick(pool.slice(-120));
       const L = BV.layer(rule[1]);

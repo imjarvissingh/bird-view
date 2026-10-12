@@ -88,7 +88,7 @@
       const recs = rows();
       let blob;
       if (kind === 'json') {
-        blob = new Blob([JSON.stringify(recs, (k, v) => (k === 'trail' ? undefined : v), 2)], { type: 'application/json' });
+        blob = new Blob([JSON.stringify(recs, BV.jsonReplacer, 2)], { type: 'application/json' });
       } else {
         const cols = L.columns.map((c) => c.key);
         const cell = (v) => { const s = Array.isArray(v) ? v.join('|') : v && typeof v === 'object' ? JSON.stringify(v) : v === undefined || v === null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
@@ -103,6 +103,7 @@
     }
 
     BV.bus.on('record:new', (r) => { if (r.layer === active) dirty = true; });
+    BV.bus.on('record:remove', (r) => { if (r.layer === active) dirty = true; });
     BV.bus.on('select', ({ ref, opts }) => {
       if (ref && ref.layer !== active && opts.from !== 'table') { active = ref.layer; filter.value = ''; renderTabs(); }
       render();
@@ -115,7 +116,7 @@
         }
       }
     });
-    setInterval(() => { renderTabs(); if (dirty && !BV.store.state.paused && !body.matches(':hover')) render(); }, 700);
+    setInterval(() => { renderTabs(); if (BV.layer(active).moving) dirty = true; if (dirty && !BV.store.state.paused && !body.matches(':hover')) render(); }, 700);
 
     renderTabs(); render();
     BV.table = { setFilter(q, layer) { if (layer) active = layer; filter.value = q; renderTabs(); render(); } };

@@ -2,17 +2,32 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>birds view</title>
-<meta name="description" content="birds view: a dark, lightweight multi-feed OSINT situational dashboard (simulated data).">
+<meta name="description" content="birds view: watch a simulated world live. Flights, ships, satellites, earthquakes, wildfires, storms and cyber signals on one rotating globe.">
 <meta name="theme-color" content="#06080a">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="website">
+<meta property="og:title" content="birds view">
+<meta property="og:description" content="A live, explorable globe of simulated world activity: air traffic, shipping, orbits, quakes, fires, storms and cyber signals.">
+<meta property="og:image" content="https://imjarvissingh.github.io/bird-view/docs/screenshot.png">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/birdsview.css">
 </head>
 <body>
+<noscript><div class="noscript">birds view needs JavaScript to draw the globe and run its simulated feeds.</div></noscript>
+
+<div class="splash" id="splash" role="status" aria-live="polite">
+  <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="16" cy="16" r="12.5" opacity=".55"/><path d="M16 2v4M16 26v4M2 16h4M26 16h4" opacity=".55"/><path d="M6.5 13.5 16 19l9.5-5.5" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+  <div class="splash-word">birds view</div>
+  <div class="splash-msg" id="splash-msg">Acquiring feeds…</div>
+</div>
+
 <div class="app">
   <header class="topbar">
     <div class="brand">
@@ -25,90 +40,159 @@
       <div><span class="word">birds view</span><span class="tag">see the whole board</span></div>
     </div>
     <div class="search">
-      <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="5"/><path d="m11 11 3.5 3.5"/></svg>
-      <input type="search" spellcheck="false" autocomplete="off" aria-label="Search" placeholder="Search IP, @handle, domain, lat,lon or key:value   ( / )">
-      <div class="results" role="listbox"></div>
+      <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="5"/><path d="m11 11 3.5 3.5"/></svg>
+      <input id="search" type="search" spellcheck="false" autocomplete="off" aria-label="Search places, flights, ships, events and records" placeholder="Search a country, city, flight, ship, quake, IP or key:value   ( / )">
+      <div class="results" role="listbox" aria-label="Search results"></div>
     </div>
     <div class="top-right">
-      <span class="badge" title="All feeds are generated in your browser">SIMULATED</span>
-      <select id="speed" class="btn" aria-label="Feed speed">
+      <span class="badge" title="Every feed is generated in your browser. Nothing here is real.">SIMULATED</span>
+      <select id="speed" class="btn" aria-label="Simulation speed">
         <option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option><option value="4">4x</option>
       </select>
-      <button id="pause" class="btn" title="Pause or resume all feeds (Space)">❚❚ pause</button>
-      <span class="clock">--:--:-- <small>UTC</small></span>
+      <button id="pause" class="btn" title="Pause or resume all feeds (Space)" aria-pressed="false">❚❚ pause</button>
+      <button id="help-btn" class="btn icon-btn" title="Shortcuts and help (?)" aria-label="Help">?</button>
+      <span class="clock" aria-label="UTC time">--:--:-- <small>UTC</small></span>
     </div>
   </header>
 
-  <aside class="panel left">
+  <aside class="panel left" aria-label="Layers and telemetry">
     <div class="section-h">Layers <span class="meta">feeds</span></div>
     <div id="layers"></div>
     <div class="section-h">Telemetry</div>
-    <div class="stats" id="stats"><div class="rows"></div><svg class="spark" viewBox="0 0 200 44" preserveAspectRatio="none"></svg></div>
+    <div class="stats" id="stats"><div class="rows"></div><svg class="spark" viewBox="0 0 200 44" preserveAspectRatio="none" aria-label="Events per second, last 90 seconds"></svg></div>
     <div class="section-h">Watchlist <span class="meta" id="watch-count">0</span></div>
     <div class="watch" id="watch"></div>
   </aside>
 
-  <main class="mapwrap" aria-label="Map">
-    <canvas></canvas>
-    <div class="map-hud"></div>
-    <div class="map-ctrl">
-      <button class="btn" data-act="zin" title="Zoom in">+</button>
-      <button class="btn" data-act="zout" title="Zoom out">−</button>
-      <button class="btn" data-act="home" title="Reset view">⌂</button>
-      <button class="btn on" data-act="arcs" title="Toggle arcs and tracks">⤳</button>
+  <main class="mapwrap" aria-label="World view">
+    <canvas aria-label="Interactive globe. Drag to rotate, scroll to zoom, click a marker or country."></canvas>
+    <div class="map-hud">
+      <select id="region" class="chip-select" aria-label="Jump to region"></select>
+      <div class="readout"></div>
     </div>
-    <div class="tip"></div>
-    <div class="paused-banner">Feed frozen. Press Space to resume.</div>
+    <div class="map-ctrl" role="toolbar" aria-label="Map controls">
+      <button class="btn" data-act="zin" title="Zoom in (+)" aria-label="Zoom in">+</button>
+      <button class="btn" data-act="zout" title="Zoom out (−)" aria-label="Zoom out">−</button>
+      <button class="btn" data-act="home" title="Whole world (H)" aria-label="Whole world">⌂</button>
+      <span class="sep"></span>
+      <button class="btn" data-act="mode" title="Globe or flat map (G)" aria-label="Toggle globe or flat map">◐</button>
+      <button class="btn on" data-act="spin" title="Auto-rotate when idle (R)" aria-label="Toggle auto-rotate">⟳</button>
+      <button class="btn on" data-act="night" title="Day and night shading (N)" aria-label="Toggle day and night">☾</button>
+      <button class="btn on" data-act="labels" title="Country and city labels (L)" aria-label="Toggle labels">Aa</button>
+      <button class="btn on" data-act="trails" title="Tracks and arcs (K)" aria-label="Toggle tracks">⤳</button>
+      <span class="sep"></span>
+      <button class="btn tour" data-act="tour" title="Tour the world's hotspots (T)" aria-label="Start tour">▶</button>
+    </div>
+    <div class="tip" role="tooltip"></div>
+    <div class="paused-banner">Feeds frozen. Press Space to resume.</div>
   </main>
 
-  <aside class="panel right">
+  <aside class="panel right" aria-label="Inspector">
     <div class="section-h">Inspector</div>
-    <div class="inspector" id="inspector"></div>
+    <div class="inspector" id="inspector" aria-live="polite"></div>
   </aside>
 
-  <section class="panel bottom">
+  <section class="panel bottom" aria-label="Records and event stream">
     <div class="tablewrap">
       <div class="tabs">
-        <div class="tablist"></div>
-        <input class="filter" type="text" placeholder="filter rows…" aria-label="Filter rows" spellcheck="false">
+        <div class="tablist" role="tablist"></div>
+        <input id="filter" class="filter" type="text" placeholder="filter rows…" aria-label="Filter rows" spellcheck="false">
         <button class="btn small" data-export="csv" title="Export filtered rows as CSV">csv</button>
         <button class="btn small" data-export="json" title="Export filtered rows as JSON">json</button>
       </div>
-      <div class="tbody"></div>
+      <div class="tbody" tabindex="0" aria-label="Records table"></div>
     </div>
     <div class="stream">
-      <div class="section-h">Event stream <span class="meta">live</span></div>
-      <div class="log" id="stream"></div>
+      <div class="section-h">Event stream <select id="stream-filter" class="mini-select" aria-label="Filter event stream"></select></div>
+      <div class="log" id="stream" aria-live="off"></div>
     </div>
   </section>
 
   <footer class="foot">
     <span id="feeds"></span>
-    <span class="note">seed <span id="seed"></span> · all feeds simulated · IPs from RFC 5737, domains on reserved TLDs</span>
+    <span class="note">seed <span id="seed"></span> · all data simulated, motion time-compressed · IPs RFC 5737, domains reserved TLDs</span>
   </footer>
+</div>
+
+<div class="modal" id="help" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden>
+  <div class="modal-card">
+    <div class="modal-h"><h2 id="help-title">Getting around</h2><button class="btn icon-btn" data-close aria-label="Close help">×</button></div>
+    <div class="help-grid">
+      <section>
+        <h3>Explore</h3>
+        <dl>
+          <dt>Drag</dt><dd>spin the globe or pan the map</dd>
+          <dt>Scroll · pinch</dt><dd>zoom toward the cursor</dd>
+          <dt>Double-click</dt><dd>zoom in on a spot</dd>
+          <dt>Click marker</dt><dd>inspect it</dd>
+          <dt>Click country</dt><dd>country briefing</dd>
+          <dt>Arrows</dt><dd>rotate · <span class="kbd">+</span> <span class="kbd">−</span> zoom</dd>
+        </dl>
+      </section>
+      <section>
+        <h3>Keys</h3>
+        <dl>
+          <dt><span class="kbd">/</span> or <span class="kbd">Ctrl K</span></dt><dd>search anything</dd>
+          <dt><span class="kbd">T</span></dt><dd>tour hotspots</dd>
+          <dt><span class="kbd">F</span></dt><dd>follow the selection</dd>
+          <dt><span class="kbd">G</span></dt><dd>globe / flat map</dd>
+          <dt><span class="kbd">H</span></dt><dd>whole world</dd>
+          <dt><span class="kbd">N</span> <span class="kbd">L</span> <span class="kbd">K</span> <span class="kbd">R</span></dt><dd>night, labels, tracks, spin</dd>
+          <dt><span class="kbd">1</span>–<span class="kbd">0</span></dt><dd>toggle layers</dd>
+          <dt><span class="kbd">Space</span></dt><dd>pause feeds</dd>
+          <dt><span class="kbd">Esc</span></dt><dd>clear, stop tour</dd>
+        </dl>
+      </section>
+      <section>
+        <h3>Search syntax</h3>
+        <dl>
+          <dt><code>Japan</code> <code>LHR</code></dt><dd>fly to a place</dd>
+          <dt><code>35.6, 139.7</code></dt><dd>fly to coordinates</dd>
+          <dt><code>mag:&gt;5</code></dt><dd>numeric filters</dd>
+          <dt><code>layer:flights to:JFK</code></dt><dd>one layer, by field</dd>
+          <dt><code>kind:tanker</code> <code>sev:crit</code></dt><dd>field contains</dd>
+        </dl>
+      </section>
+    </div>
+    <p class="fine">Every feed is generated in your browser and none of it is real. Movement is time-compressed so it is visible: aircraft 30×, ships 420×, satellites 6×, storms 900×. Country borders: Natural Earth (public domain).</p>
+  </div>
 </div>
 <div class="toast" role="status" aria-live="polite"></div>
 
+<!-- vendor (vendored so the app works offline) -->
+<script src="js/vendor/d3-array.min.js"></script>
+<script src="js/vendor/d3-geo.min.js"></script>
+<script src="js/vendor/topojson-client.min.js"></script>
 <!-- core -->
 <script src="js/core/rng.js"></script>
 <script src="js/core/bus.js"></script>
 <script src="js/core/registry.js"></script>
 <script src="js/core/store.js"></script>
+<script src="js/core/geo.js"></script>
 <script src="js/core/mockapi.js"></script>
 <!-- reference data -->
 <script src="js/data/places.js"></script>
-<script src="js/data/landmask.js"></script>
-<!-- data layers: add a file + a tag here to add a layer -->
+<script src="js/data/georef.js"></script>
+<script src="js/data/world110.js"></script>
+<!-- data layers: add a file + a tag here to add a layer (order = panel order + number keys) -->
+<script src="js/layers/flights.js"></script>
+<script src="js/layers/vessels.js"></script>
+<script src="js/layers/satellites.js"></script>
+<script src="js/layers/quakes.js"></script>
+<script src="js/layers/fires.js"></script>
+<script src="js/layers/storms.js"></script>
+<script src="js/layers/alerts.js"></script>
 <script src="js/layers/hosts.js"></script>
+<script src="js/layers/domains.js"></script>
 <script src="js/layers/handles.js"></script>
 <script src="js/layers/pings.js"></script>
-<script src="js/layers/domains.js"></script>
-<script src="js/layers/alerts.js"></script>
 <!-- ui -->
-<script src="js/ui/map.js"></script>
+<script src="js/ui/globe.js"></script>
 <script src="js/ui/panels.js"></script>
 <script src="js/ui/table.js"></script>
 <script src="js/ui/search.js"></script>
 <script src="js/app.js"></script>
+<!-- high-detail borders load last; the globe switches to them when you zoom in -->
+<script src="js/data/world50.js" defer></script>
 </body>
 </html>

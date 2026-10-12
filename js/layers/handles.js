@@ -5,7 +5,7 @@
   const TOPICS = ['crypto', 'infosec', 'gaming', 'travel', 'leaks', 'devops', 'photography', 'politics', 'ai', 'drones', 'ham radio', 'music'];
 
   BV.registerLayer({
-    id: 'handles', short: 'Handles', label: 'Social Handles', color: '--c-handles', glyph: '●', rate: 0.8, backfill: 120,
+    id: 'handles', group: 'People', short: 'Handles', label: 'Social Handles', color: '--c-handles', glyph: '●', rate: 0.8, backfill: 120,
     generate(rng) {
       const p = rng.place();
       const platform = rng.weighted(PLATFORMS);

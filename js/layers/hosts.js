@@ -22,7 +22,7 @@
   const TAGS = ['self-signed', 'default-creds?', 'eol-software', 'iot', 'cdn', 'vpn', 'honeypot?', 'cloud', 'residential'];
 
   BV.registerLayer({
-    id: 'hosts', short: 'Hosts', label: 'Exposed Hosts', color: '--c-hosts', glyph: '◆', rate: 1.1, backfill: 160,
+    id: 'hosts', group: 'Cyber', short: 'Hosts', label: 'Exposed Hosts', color: '--c-hosts', glyph: '◆', rate: 1.1, backfill: 160,
     generate(rng) {
       const s = rng.weighted(SERVICES.map((x) => [x, x[3]]));
       const p = rng.place();

@@ -61,7 +61,6 @@
       for (const layer of BV.layers) {
         const feed = feeds.get(layer.id);
         health(feed, now);
-        if (layer.update) for (const rec of BV.store.all(layer.id)) layer.update(rec, rng, dt * speed, c);
         if (feed.status === 'offline') continue;
         const rate = layer.rate * speed * (feed.status === 'degraded' ? 0.35 : 1);
         // bursty arrivals: jittered accumulator, mean = rate events/sec
@@ -80,8 +79,10 @@
       rng,
       feeds,
       start() {
-        for (const layer of BV.layers) {
-          feeds.set(layer.id, feedFor(layer));
+        for (const layer of BV.layers) feeds.set(layer.id, feedFor(layer));
+        // layers that correlate other layers (seedAfter) backfill last
+        const order = BV.layers.filter((l) => !l.seedAfter).concat(BV.layers.filter((l) => l.seedAfter));
+        for (const layer of order) {
           // backfill: history as if the feed had been running for a while
           const c = ctx();
           const n = layer.backfill;
@@ -99,6 +100,18 @@
         BV.bus.emit('server:ready');
       },
       stop() { clearInterval(timer); },
+      // Advance moving entities. Called every animation frame so motion is smooth;
+      // the physical world keeps moving even when a feed is degraded or offline.
+      advance(dtReal) {
+        if (BV.store.state.paused) return;
+        const dt = Math.min(0.25, dtReal) * BV.store.state.speed;
+        const c = ctx();
+        for (const layer of BV.layers) {
+          if (!layer.update) continue;
+          const recs = BV.store.all(layer.id);
+          for (let i = 0; i < recs.length; i++) layer.update(recs[i], rng, dt, c);
+        }
+      },
       // REST-ish async query with simulated latency
       query(layerId, predicate, limit = 50) {
         const feed = feeds.get(layerId);

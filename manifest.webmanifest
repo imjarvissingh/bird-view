@@ -1,0 +1,10 @@
+{
+  "name": "birds view",
+  "short_name": "birds view",
+  "description": "A live, explorable globe of simulated world activity.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#06080a",
+  "theme_color": "#06080a",
+  "icons": [{ "src": "assets/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

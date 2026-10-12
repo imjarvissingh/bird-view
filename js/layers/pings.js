@@ -15,7 +15,7 @@
   }
 
   BV.registerLayer({
-    id: 'pings', short: 'Pings', label: 'Geo Pings', color: '--c-pings', glyph: '▲', rate: 2.2, backfill: 46,
+    id: 'pings', group: 'People', short: 'Pings', label: 'Geo Pings', color: '--c-pings', glyph: '▲', rate: 2.2, backfill: 46,
     seed(rng, n) { return Array.from({ length: n }, () => newDevice(rng)); },
     generate(rng, ctx) {
       const existing = ctx.store.all('pings');

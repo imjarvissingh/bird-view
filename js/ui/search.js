@@ -38,14 +38,27 @@
     };
   }
 
+  function placeHits(q) {
+    q = q.trim().toLowerCase();
+    if (q.length < 2 || /[:@]/.test(q) || RE_IP.test(q)) return [];
+    const out = [];
+    const starts = (s) => s.toLowerCase().startsWith(q), has = (s) => s.toLowerCase().includes(q);
+    for (const f of BV.countries || []) if (starts(f.name)) out.push({ name: f.name, kind: 'country', feature: f });
+    for (const r of BV.map.regions) if (has(r[0])) out.push({ name: r[0], kind: 'region', lat: r[1], lon: r[2], z: r[3] });
+    for (const a of BV.AIRPORTS) if (a[0].toLowerCase() === q || starts(a[1])) out.push({ name: a[1] + ' (' + a[0] + ')', kind: 'airport · ' + a[2], lat: a[3], lon: a[4], z: 6 });
+    for (const c of BV.PLACES) if (starts(c[0]) && !out.some((o) => o.name.startsWith(c[0]))) out.push({ name: c[0], kind: 'city · ' + c[1], lat: c[2], lon: c[3], z: 6 });
+    for (const f of BV.countries || []) if (!starts(f.name) && has(f.name)) out.push({ name: f.name, kind: 'country', feature: f });
+    return out.slice(0, 6);
+  }
+
   BV.initSearch = function (root) {
     const input = root.querySelector('input');
     const box = root.querySelector('.results');
     let hits = [], active = -1, seq = 0;
 
     function hint() {
-      box.innerHTML = '<div class="hint">Try <code>203.0.113</code>, <code>@ghost</code>, <code>.example</code>, <code>35.68, 139.69</code>, ' +
-        '<code>port:6379</code>, <code>sev:crit</code>, <code>cc:DE service:ssh</code>, <code>risk:&gt;70</code>, <code>layer:pings kind:drone</code></div>';
+      box.innerHTML = '<div class="hint">Try <code>Japan</code>, <code>JFK</code>, <code>NHR</code>, <code>M6</code>, <code>@ghost</code>, <code>35.68, 139.69</code>, ' +
+        '<code>mag:&gt;5</code>, <code>layer:flights to:LHR</code>, <code>kind:tanker</code>, <code>sev:crit</code>, <code>port:6379</code>, <code>risk:&gt;70</code></div>';
       box.classList.add('open'); hits = []; active = -1;
     }
 
@@ -59,6 +72,7 @@
         box.innerHTML = '<div class="grp">Coordinates</div><div class="hit active" data-i="0"><span style="color:var(--accent)">⌖</span><span class="t">Fly to ' + (+coord[1]).toFixed(4) + ', ' + (+coord[2]).toFixed(4) + '</span><span class="s">Enter</span></div>';
         active = 0; box.classList.add('open'); return;
       }
+      const places = placeHits(q);
       const p = parse(q);
       if (RE_IP.test(q.trim())) p.layer = p.layer || null;
       box.innerHTML = '<div class="hint">Querying ' + BV.layers.length + ' feeds…</div>';
@@ -70,6 +84,13 @@
       const ms = Math.round(performance.now() - t0);
       hits = [];
       let html = '';
+      if (places.length) {
+        html += '<div class="grp">⌖ Places</div>';
+        for (const pl of places) {
+          html += '<div class="hit" data-i="' + hits.length + '"><span style="color:var(--accent)">⌖</span><span class="t">' + esc(pl.name) + '</span><span class="s">' + esc(pl.kind) + '</span></div>';
+          hits.push({ place: pl });
+        }
+      }
       for (const { L, r } of res) {
         if (!r.ok) { html += '<div class="grp" style="color:var(--crit)">' + esc(L.label) + ' · feed offline (503)</div>'; continue; }
         if (!r.items.length) continue;
@@ -102,7 +123,8 @@
     function choose(i) {
       const h = hits[i];
       if (!h) return;
-      if (h.coord) BV.map.flyTo(h.coord[0], h.coord[1], BV.map.view.minPpd * 10);
+      if (h.coord) BV.map.flyTo(h.coord[0], h.coord[1], BV.map.view.mode === 'globe' ? 5 : 10);
+      else if (h.place) { if (h.place.feature) BV.store.selectCountry({ name: h.place.name, feature: h.place.feature }); else BV.map.flyTo(h.place.lat, h.place.lon, h.place.z); }
       else if (h.table) BV.table.setFilter(h.q.split(/\s+/).filter((t) => !/^(layer|in):/i.test(t)).map((t) => t.replace(/^[a-z]+:/i, '')).join(' '), h.table);
       else BV.store.select(h.rec);
       close();
