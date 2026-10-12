@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>birds view</title>
+<meta name="description" content="birds view: a dark, lightweight multi-feed OSINT situational dashboard (simulated data).">
+<meta name="theme-color" content="#06080a">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/birdsview.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+        <circle cx="16" cy="16" r="12.5" opacity=".55"/>
+        <path d="M16 2v4M16 26v4M2 16h4M26 16h4" opacity=".55"/>
+        <path d="M6.5 13.5 16 19l9.5-5.5" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+        <path d="M11 12.2 16 15l5-2.8" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" opacity=".8"/>
+      </svg>
+      <div><span class="word">birds view</span><span class="tag">see the whole board</span></div>
+    </div>
+    <div class="search">
+      <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="5"/><path d="m11 11 3.5 3.5"/></svg>
+      <input type="search" spellcheck="false" autocomplete="off" aria-label="Search" placeholder="Search IP, @handle, domain, lat,lon or key:value   ( / )">
+      <div class="results" role="listbox"></div>
+    </div>
+    <div class="top-right">
+      <span class="badge" title="All feeds are generated in your browser">SIMULATED</span>
+      <select id="speed" class="btn" aria-label="Feed speed">
+        <option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option><option value="4">4x</option>
+      </select>
+      <button id="pause" class="btn" title="Pause or resume all feeds (Space)">❚❚ pause</button>
+      <span class="clock">--:--:-- <small>UTC</small></span>
+    </div>
+  </header>
+
+  <aside class="panel left">
+    <div class="section-h">Layers <span class="meta">feeds</span></div>
+    <div id="layers"></div>
+    <div class="section-h">Telemetry</div>
+    <div class="stats" id="stats"><div class="rows"></div><svg class="spark" viewBox="0 0 200 44" preserveAspectRatio="none"></svg></div>
+    <div class="section-h">Watchlist <span class="meta" id="watch-count">0</span></div>
+    <div class="watch" id="watch"></div>
+  </aside>
+
+  <main class="mapwrap" aria-label="Map">
+    <canvas></canvas>
+    <div class="map-hud"></div>
+    <div class="map-ctrl">
+      <button class="btn" data-act="zin" title="Zoom in">+</button>
+      <button class="btn" data-act="zout" title="Zoom out">−</button>
+      <button class="btn" data-act="home" title="Reset view">⌂</button>
+      <button class="btn on" data-act="arcs" title="Toggle arcs and tracks">⤳</button>
+    </div>
+    <div class="tip"></div>
+    <div class="paused-banner">Feed frozen. Press Space to resume.</div>
+  </main>
+
+  <aside class="panel right">
+    <div class="section-h">Inspector</div>
+    <div class="inspector" id="inspector"></div>
+  </aside>
+
+  <section class="panel bottom">
+    <div class="tablewrap">
+      <div class="tabs">
+        <div class="tablist"></div>
+        <input class="filter" type="text" placeholder="filter rows…" aria-label="Filter rows" spellcheck="false">
+        <button class="btn small" data-export="csv" title="Export filtered rows as CSV">csv</button>
+        <button class="btn small" data-export="json" title="Export filtered rows as JSON">json</button>
+      </div>
+      <div class="tbody"></div>
+    </div>
+    <div class="stream">
+      <div class="section-h">Event stream <span class="meta">live</span></div>
+      <div class="log" id="stream"></div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <span id="feeds"></span>
+    <span class="note">seed <span id="seed"></span> · all feeds simulated · IPs from RFC 5737, domains on reserved TLDs</span>
+  </footer>
+</div>
+<div class="toast" role="status" aria-live="polite"></div>
+
+<!-- core -->
+<script src="js/core/rng.js"></script>
+<script src="js/core/bus.js"></script>
+<script src="js/core/registry.js"></script>
+<script src="js/core/store.js"></script>
+<script src="js/core/mockapi.js"></script>
+<!-- reference data -->
+<script src="js/data/places.js"></script>
+<script src="js/data/landmask.js"></script>
+<!-- data layers: add a file + a tag here to add a layer -->
+<script src="js/layers/hosts.js"></script>
+<script src="js/layers/handles.js"></script>
+<script src="js/layers/pings.js"></script>
+<script src="js/layers/domains.js"></script>
+<script src="js/layers/alerts.js"></script>
+<!-- ui -->
+<script src="js/ui/map.js"></script>
+<script src="js/ui/panels.js"></script>
+<script src="js/ui/table.js"></script>
+<script src="js/ui/search.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
