@@ -41,11 +41,13 @@
     </div>
     <div class="search">
       <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="5"/><path d="m11 11 3.5 3.5"/></svg>
-      <input id="search" type="search" spellcheck="false" autocomplete="off" aria-label="Search places, flights, ships, events and records" placeholder="Search a country, city, flight, ship, quake, IP or key:value   ( / )">
+      <input id="search" type="search" spellcheck="false" autocomplete="off" aria-label="Search places, flights, ships, events and records" placeholder="Search a place, flight, quake, disaster, news or key:value   ( / )">
       <div class="results" role="listbox" aria-label="Search results"></div>
     </div>
     <div class="top-right">
-      <span class="badge" title="Every feed is generated in your browser. Nothing here is real.">SIMULATED</span>
+      <span class="badge" id="mode-badge" title="Live feeds are real public data; ships, cyber and people layers are simulated.">CONNECTING</span>
+      <button id="tv-btn" class="btn" title="Live news channels (B)">▶ Live TV</button>
+      <button id="street-btn" class="btn" title="Street view and satellite at the selection or map center (V)">⌖ Street view</button>
       <select id="speed" class="btn" aria-label="Simulation speed">
         <option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option><option value="4">4x</option>
       </select>
@@ -110,7 +112,7 @@
 
   <footer class="foot">
     <span id="feeds"></span>
-    <span class="note">seed <span id="seed"></span> · all data simulated, motion time-compressed · IPs RFC 5737, domains reserved TLDs</span>
+    <span class="note">live: ADS-B · USGS · NASA EONET · CelesTrak · GDELT — ships, cyber and people are simulated (seed <span id="seed"></span>)</span>
   </footer>
 </div>
 
@@ -133,6 +135,8 @@
         <h3>Keys</h3>
         <dl>
           <dt><span class="kbd">/</span> or <span class="kbd">Ctrl K</span></dt><dd>search anything</dd>
+          <dt><span class="kbd">B</span></dt><dd>live news channels</dd>
+          <dt><span class="kbd">V</span></dt><dd>street view / satellite here</dd>
           <dt><span class="kbd">T</span></dt><dd>tour hotspots</dd>
           <dt><span class="kbd">F</span></dt><dd>follow the selection</dd>
           <dt><span class="kbd">G</span></dt><dd>globe / flat map</dd>
@@ -154,7 +158,7 @@
         </dl>
       </section>
     </div>
-    <p class="fine">Every feed is generated in your browser and none of it is real. Movement is time-compressed so it is visible: aircraft 30×, ships 420×, satellites 6×, storms 900×. Country borders: Natural Earth (public domain).</p>
+    <p class="fine">Layers marked Live use real public data: aircraft (adsb.lol, airplanes.live, OpenSky), earthquakes (USGS), natural events (NASA EONET), satellites (CelesTrak, SGP4 in your browser) and news (GDELT). If a source is unreachable the matching simulation takes over. Ships, cyber and people layers, and the simulated twins, are generated in your browser; their motion is time-compressed. Country borders: Natural Earth (public domain).</p>
   </div>
 </div>
 <div class="toast" role="status" aria-live="polite"></div>
@@ -163,6 +167,7 @@
 <script src="js/vendor/d3-array.min.js"></script>
 <script src="js/vendor/d3-geo.min.js"></script>
 <script src="js/vendor/topojson-client.min.js"></script>
+<script src="js/vendor/satellite.min.js"></script>
 <!-- core -->
 <script src="js/core/rng.js"></script>
 <script src="js/core/bus.js"></script>
@@ -170,11 +175,17 @@
 <script src="js/core/store.js"></script>
 <script src="js/core/geo.js"></script>
 <script src="js/core/mockapi.js"></script>
+<script src="js/core/live.js"></script>
 <!-- reference data -->
 <script src="js/data/places.js"></script>
 <script src="js/data/georef.js"></script>
 <script src="js/data/world110.js"></script>
 <!-- data layers: add a file + a tag here to add a layer (order = panel order + number keys) -->
+<script src="js/layers/live-flights.js"></script>
+<script src="js/layers/live-quakes.js"></script>
+<script src="js/layers/live-events.js"></script>
+<script src="js/layers/live-sats.js"></script>
+<script src="js/layers/live-news.js"></script>
 <script src="js/layers/flights.js"></script>
 <script src="js/layers/vessels.js"></script>
 <script src="js/layers/satellites.js"></script>
@@ -191,6 +202,7 @@
 <script src="js/ui/panels.js"></script>
 <script src="js/ui/table.js"></script>
 <script src="js/ui/search.js"></script>
+<script src="js/ui/explore.js"></script>
 <script src="js/app.js"></script>
 <!-- high-detail borders load last; the globe switches to them when you zoom in -->
 <script src="js/data/world50.js" defer></script>

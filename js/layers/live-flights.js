@@ -101,8 +101,10 @@
       if (f.onGround || f.gs < 40) return;
       const age = (Date.now() - f.posAt) / 1000;
       if (age > 240) return; // don't guess for too long
-      const p = BV.geo.dest([f.lon, f.lat], f.heading, (f.gs * KT / 3600) * dt);
-      f.lon = p[0]; f.lat = p[1];
+      const d = (f.gs * KT / 3600) * dt, h = f.heading * 0.0174533; // km; flat-earth step is exact enough for seconds
+      f.lat += Math.cos(h) * d / 111.2;
+      f.lon += Math.sin(h) * d / (111.2 * Math.max(0.05, Math.cos(f.lat * 0.0174533)));
+      if (f.lon > 180) f.lon -= 360; else if (f.lon < -180) f.lon += 360;
     },
     enrich(f) {
       const jobs = [];

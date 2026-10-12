@@ -70,3 +70,17 @@ js/ui/                  globe, panels (layers, telemetry, watchlist, inspector, 
 js/app.js               bootstrap, controls, keyboard, preferences, help
 docs/                   recon, architecture, brand notes
 ```
+
+## Live data (v3)
+
+Layers in the **Live** group use real public, keyless sources and fall back to their simulated twins if a source is unreachable:
+
+| Layer | Source |
+|---|---|
+| Live Flights | adsb.lol / airplanes.live (ADS-B, around where you look and across major hubs), OpenSky when available; routes and photos from adsbdb |
+| Live Earthquakes | USGS real-time feeds |
+| Natural Events | NASA EONET (wildfires, storms, volcanoes, floods, ice …) |
+| Live Satellites | CelesTrak elements propagated with SGP4 (satellite.js) |
+| Live News | GDELT headlines, placed by the place named in the headline |
+
+Also: **Live TV** (`B`, 16 news channels via YouTube embeds), **Street view / satellite / weather** for any selection, country click or map center (`V`). Ships, cyber and people layers remain simulated (no free keyless AIS exists). Embeds and APIs need internet access and a normal browser; some hosts (sandboxed previews) block them.

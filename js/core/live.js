@@ -6,7 +6,7 @@
    reached, switches on the simulated layer named in `fallback` so the globe never goes dark. */
 (function () {
   const BV = (window.BV = window.BV || {});
-  const FAILS_BEFORE_FALLBACK = 2;
+  const FAILS_BEFORE_FALLBACK = 1;
 
   // fetch with timeout + latency measurement. Throws on network errors and non-2xx.
   async function request(url, opts) {
@@ -61,6 +61,7 @@
     const now = Date.now();
     const seen = new Set();
     let added = 0;
+    for (const r of recs) if (r && !r.ts) r.ts = now;
     const silentBefore = initial ? recs.slice().sort((a, b) => b.ts - a.ts)[Math.min(recs.length - 1, 7)] : null;
     for (const r of recs) {
       if (!r || r.lat === undefined || !isFinite(r.lat) || !isFinite(r.lon)) continue;
@@ -105,6 +106,11 @@
       feed.latency = live.lastMs; feed.lastTs = Date.now(); feed.fails = 0;
       if (Array.isArray(recs)) { apply(L, recs, initial); feed.received += recs.length; }
       setStatus(feed, 'live');
+      if (feed.fellBack) { // the real source is back: retire the simulated stand-in
+        feed.fellBack = false;
+        [].concat(L.fallback || []).forEach((id) => BV.store.setVisible(id, false));
+        BV.toast(L.label + ' is live again');
+      }
       feed.nextAt = Date.now() + (L.interval || 60000);
     } catch (err) {
       feed.fails++;

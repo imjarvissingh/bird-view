@@ -263,6 +263,8 @@
           }
           c.beginPath(); c.arc(0, 0, 2.2, 0, Math.PI * 2); c.fill(); c.restore(); break;
         }
+        case 'event': c.moveTo(x, y - r * 1.15); c.lineTo(x + r, y + r * 0.8); c.lineTo(x - r, y + r * 0.8); c.closePath(); c.fill(); c.globalAlpha *= 0.4; c.beginPath(); c.arc(x, y, r * 2, 0, Math.PI * 2); c.stroke(); break;
+        case 'news': c.moveTo(x, y - r); c.lineTo(x + r * 0.8, y); c.lineTo(x, y + r); c.lineTo(x - r * 0.8, y); c.closePath(); c.fill(); break;
         case 'hosts': c.moveTo(x, y - r); c.lineTo(x + r, y); c.lineTo(x, y + r); c.lineTo(x - r, y); c.closePath(); c.fill(); break;
         case 'domains': c.rect(x - r * 0.75, y - r * 0.75, r * 1.5, r * 1.5); c.fill(); break;
         case 'pings': {
@@ -361,6 +363,7 @@
           ctx.globalAlpha = L.moving ? 0.95 : 0.45 + 0.55 * fresh;
           if (L.id === 'quakes') ctx.globalAlpha = Math.max(0.35, 1 - age / 7200);
           if (L.id === 'fires') ctx.globalAlpha = Math.max(0.4, 1 - age / 3600);
+          if (L.fade) ctx.globalAlpha = Math.max(0.4, 1 - age / L.fade);
           const shape = L.shape || L.id;
           const r = r0 * (L.id === 'alerts' ? 1 + (rec.rank - 1) * 0.18 : 1);
           const ang = rec.heading !== undefined && (shape === 'plane' || shape === 'ship' || shape === 'pings' || shape === 'sat') ? screenAngle(rec.lon, rec.lat, rec.heading) : 0;
@@ -401,13 +404,13 @@
       const L = BV.layer(sel.layer);
       const hex = L.hex;
       // per-type overlays
-      if (sel.layer === 'flights' && rec.route) {
+      if ((sel.layer === 'flights' || sel.layer === 'lflights') && rec.route) {
         line(rec.route, hex, 0.35, 1, [4, 4]);
         line([[rec.lon, rec.lat], rec.route[1]], hex, 0.8, 1.4);
         for (const q of rec.route) { const p = project(q[0], q[1]); if (p) { ctx.strokeStyle = hex; ctx.beginPath(); ctx.arc(p[0], p[1], 4, 0, Math.PI * 2); ctx.stroke(); } }
       }
       if (sel.layer === 'vessels' && rec.laneRef) line(rec.laneRef.pts, hex, 0.35, 1, [4, 4]);
-      if (sel.layer === 'sats' && L.groundTrack) {
+      if (L.groundTrack) {
         line(L.groundTrack(rec), hex, 0.55, 1.2, [5, 4]);
         circle([rec.lon, rec.lat], L.footprintDeg(rec), hex, 0.07, 0.5);
       }
@@ -415,7 +418,8 @@
         circle([rec.lon, rec.lat], (rec.wind * 3.2) / 111, hex, 0.06, 0.45);
         circle([rec.lon, rec.lat], (rec.wind * 1.4) / 111, hex, 0.08, 0.6);
       }
-      if (sel.layer === 'quakes') circle([rec.lon, rec.lat], Math.pow(10, 0.43 * rec.mag - 0.6) / 111, hex, 0.07, 0.6);
+      if (rec.track) track(rec.track, hex, 0.6, 1.2, [3, 3]);
+      if (sel.layer === 'quakes' || sel.layer === 'lquakes') circle([rec.lon, rec.lat], Math.pow(10, 0.43 * rec.mag - 0.6) / 111, hex, 0.07, 0.6);
       if (rec.target) line([[rec.lon, rec.lat], [rec.target.lon, rec.target.lat]], hex, 0.9, 1.4);
       if (L.links) {
         for (const o of L.links(rec, BV.store).slice(0, 12)) {
@@ -506,6 +510,11 @@
       const add = (r) => { if (r && r.lat !== undefined && BV.layer(r.layer).visible) out.push(r); };
       add(s.all('alerts').filter((a) => a.rank >= 3).slice(-1)[0]);
       add(s.all('quakes').slice().sort((a, b) => b.mag - a.mag)[0]);
+      add(s.all('lquakes').slice().sort((a, b) => b.mag - a.mag)[0]);
+      add(pick(s.all('events')));
+      add(pick(s.all('news')));
+      add(pick(s.all('lflights').filter((f) => !f.onGround)));
+      add(s.all('lsats').find((x) => /ISS/.test(x.name)));
       add(pick(s.all('storms').filter((x) => !x.ended)));
       add(pick(s.all('flights').filter((f) => f.routeKm > 6000)));
       add(pick(s.all('vessels')));
@@ -624,7 +633,7 @@
         if (hit) BV.store.select(hit.rec, { from: 'map' });
         else {
           const f = countryAt(invert(mx, my));
-          if (f) BV.store.selectCountry({ name: f.name, feature: f }, { from: 'map' });
+          if (f) { const at = invert(mx, my); BV.store.selectCountry({ name: f.name, feature: f, at: at ? [at[1], at[0]] : null }, { from: 'map' }); }
           else { BV.store.select(null); BV.store.selectCountry(null); }
         }
       }
@@ -711,9 +720,10 @@
     BV.bus.on('record:new', (rec) => {
       const L = BV.layer(rec.layer);
       if (!L || !L.visible || rec.lat === undefined) return;
-      if (L.moving && rec.layer !== 'storms') return; // position reports on moving things would flicker constantly
+      if (L.moving && rec.layer !== 'storms') return;
+      if (rec.live && rec.layer === 'news') return; // position reports on moving things would flicker constantly
       if (pulses.length > 140) pulses.shift();
-      const big = (rec.layer === 'alerts' && rec.rank >= 3) || (rec.layer === 'quakes' && rec.mag >= 5);
+      const big = (rec.layer === 'alerts' && rec.rank >= 3) || ((rec.layer === 'quakes' || rec.layer === 'lquakes') && rec.mag >= 5);
       pulses.push({ lat: rec.lat, lon: rec.lon, color: L.hex, t0: Date.now(), dur: big ? 2600 : 1600, big });
     });
     BV.bus.on('select', ({ ref, country, opts: o }) => {

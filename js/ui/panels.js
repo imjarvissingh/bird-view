@@ -25,7 +25,7 @@
             const key = BV.layerKey(L);
             return '<button class="layer' + (L.visible ? '' : ' off') + '" data-id="' + L.id + '" style="--c:' + L.hex + '" aria-pressed="' + L.visible + '" title="' + esc(L.label) + (key ? ' (' + key + ')' : '') + '">' +
               '<span class="sw"></span><span class="name">' + esc(L.label) + '</span><span class="count">' + BV.store.count(L.id).toLocaleString() + '</span>' +
-              '<span class="sub"><span><span class="dot ' + st + (st === 'live' ? ' live' : '') + '"></span>' + st + ' · ' + feed.latency + 'ms</span>' +
+              '<span class="sub" title="' + esc(L.source || 'simulated') + (feed.error ? ' · ' + esc(feed.error) : '') + '"><span><span class="dot ' + st + (st === 'live' ? ' live' : '') + '"></span>' + (feed.live ? (st === 'live' ? 'LIVE' : st) : 'sim · ' + st) + (feed.latency ? ' · ' + feed.latency + 'ms' : '') + '</span>' +
               (key ? '<span class="key">' + key + '</span>' : '') + '</span></button>';
           }).join('') + '</div>';
       }).join('');
@@ -57,9 +57,9 @@
       const last10 = h.slice(-10);
       const eps = last10.length ? last10.reduce((a, b) => a + b, 0) / last10.length : 0;
       const hot = BV.store.all('alerts').filter((a) => a.rank >= 3 && Date.now() - a.ts < 300000).length;
-      const airborne = BV.store.all('flights').filter((f) => !f.ended).length;
-      const storms = BV.store.all('storms').filter((s) => !s.ended).length;
-      const bigQ = BV.store.all('quakes').filter((q) => q.mag >= 5 && Date.now() - q.ts < 86400000).length;
+      const airborne = BV.store.all('flights').filter((f) => !f.ended).length + BV.store.all('lflights').filter((f) => !f.onGround).length;
+      const storms = BV.store.all('storms').filter((s) => !s.ended).length + BV.store.all('events').filter((e) => e.catId === 'severeStorms').length;
+      const bigQ = BV.store.all('quakes').concat(BV.store.all('lquakes')).filter((q) => q.mag >= 5 && Date.now() - q.ts < 86400000).length;
       rows.innerHTML =
         '<div class="row"><span>events / s</span><span>' + eps.toFixed(1) + '</span></div>' +
         '<div class="row"><span>entities tracked</span><span>' + BV.store.total().toLocaleString() + '</span></div>' +
@@ -129,6 +129,7 @@
         '<div class="counts">' + BV.layers.filter((L) => by[L.id]).map((L) =>
           '<button class="cnt" data-l="' + L.id + '" style="--c:' + L.hex + '"><span class="g">' + L.glyph + '</span><b>' + by[L.id].length + '</b><span>' + esc(L.short || L.label) + '</span></button>').join('') +
         (inside.length ? '' : '<div class="empty">No visible activity inside this country right now.</div>') + '</div>' +
+        '<div class="subh">Explore this spot</div><div class="insp-actions" style="padding:0 12px 8px"><button class="btn small" data-a="spot-street">⌖ street view</button><button class="btn small" data-a="spot-sat">◍ satellite</button></div>' +
         '<div class="subh">Latest</div>' + recent.map(relRow).join('');
     }
     function relRow(o) {
@@ -141,6 +142,7 @@
       const sel = BV.store.state.selected;
       const rec = sel && BV.store.get(sel.layer, sel.id);
       if (!rec) { current = null; return empty(); }
+      if (current !== rec && BV.layer(rec.layer).enrich && !rec._enriched) { rec._enriched = true; BV.layer(rec.layer).enrich(rec).then(() => { if (current === rec) render(); }, () => {}); }
       current = rec;
       const L = BV.layer(rec.layer);
       const watched = BV.store.isWatched(rec);
@@ -157,7 +159,9 @@
         '<button class="btn small' + (watched ? ' on' : '') + '" data-a="watch">' + (watched ? '★ pinned' : '☆ pin') + '</button>' +
         (rec.lat !== undefined ? '<button class="btn small" data-a="fly">⌖ locate</button>' : '') +
         (L.moving && !rec.ended ? '<button class="btn small' + (following ? ' on' : '') + '" data-a="follow">' + (following ? '◉ following' : '◎ follow') + '</button>' : '') +
+        (rec.lat !== undefined ? '<button class="btn small" data-a="street">⌖ street view</button>' : '') +
         '<button class="btn small" data-a="copy">⧉ copy</button>' +
+        (L.actions ? L.actions(rec).filter((x) => x[1]).map((x) => '<a class="btn small live-link" href="' + esc(x[1]) + '" target="_blank" rel="noopener noreferrer">' + esc(x[0]) + '</a>').join('') : '') +
         '</div></div>' +
         '<div class="kv">' + fields.map(([k, v, pivot]) =>
           '<div class="k">' + esc(k) + '</div><div class="v' + (pivot ? ' pivot" role="button" tabindex="0" data-q="' + esc(String(v)) + '" title="Search for this value' : '') + '">' + esc(String(v)) + '</div>').join('') +
@@ -172,8 +176,13 @@
         const act = a.dataset.a;
         if (act === 'clear') { BV.store.selectCountry(null); return; }
         if (act === 'search' && country) { BV.search.run(country.name); return; }
+        if ((act === 'spot-street' || act === 'spot-sat') && country) {
+          const at = country.at || [country.feature.centroid[1], country.feature.centroid[0]];
+          BV.explore.openView(at[0], at[1], country.name, act === 'spot-sat' ? 'sat' : 'street'); return;
+        }
         if (!current) return;
         if (act === 'watch') { BV.store.toggleWatch(current); render(); }
+        if (act === 'street') BV.explore.openView(current.lat, current.lon, BV.layer(current.layer).title(current));
         if (act === 'fly') BV.map.flyTo(current.lat, current.lon, BV.map.view.mode === 'globe' ? 4 : 8);
         if (act === 'follow') { if (BV.map.isFollowing(current)) BV.map.stopFollow(); else BV.map.startFollow(current); render(); }
         if (act === 'copy') {
@@ -245,7 +254,7 @@
         const f = BV.server.feeds.get(L.id);
         const st = paused ? 'paused' : f.status;
         if (st === 'live') live++; else if (st === 'degraded') deg++; else if (st === 'offline') off++;
-        return '<span class="feed" title="' + esc(L.label) + ': ' + st + ', ' + f.latency + ' ms, last ' + BV.fmt.ago(f.lastTs) + '"><span class="dot ' + st + '"></span>' + L.short.toLowerCase() + '</span>';
+        return '<span class="feed" title="' + esc(L.label) + ': ' + st + (f.live ? ' (real data: ' + esc(L.source) + ')' : ' (simulated)') + ', ' + f.latency + ' ms, last ' + (f.lastTs ? BV.fmt.ago(f.lastTs) : 'never') + '"><span class="dot ' + st + '"></span>' + L.short.toLowerCase() + '</span>';
       }).join('');
       root.innerHTML = '<span class="sum">' + (paused ? 'feeds paused' : live + ' live' + (deg ? ' · ' + deg + ' degraded' : '') + (off ? ' · ' + off + ' offline' : '')) + '</span>' + dots;
     }

@@ -2,7 +2,7 @@
 (function () {
   const BV = window.BV;
   const $ = (s) => document.querySelector(s);
-  const PREF_KEY = 'birdsview.prefs.v2';
+  const PREF_KEY = 'birdsview.prefs.v3';
 
   function loadPrefs() { try { return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch (e) { return {}; } }
   function savePrefs() {
@@ -28,12 +28,16 @@
   function boot() {
     BV.resolveColors();
     const prefs = loadPrefs();
-    for (const L of BV.layers) if (prefs.hidden && prefs.hidden.includes(L.id)) L.visible = false;
+    for (const L of BV.layers) if (prefs.hidden && prefs.hidden.includes(L.id) && L.live) L.visible = false;
 
     const seedParam = new URLSearchParams(location.search).get('seed');
     const seed = seedParam ? (parseInt(seedParam, 10) || 1) : (Date.now() & 0x7fffffff);
     BV.server = BV.MockServer(seed);
+    // simulated twins of live layers stay hidden unless their live source fails (live.js turns them on)
+    const twins = new Set(BV.layers.filter((L) => L.live && L.fallback).flatMap((L) => [].concat(L.fallback)));
+    twins.forEach((id) => { BV.layer(id).visible = false; });
     BV.server.start();
+    BV.live.start();
     if (prefs.speed) { BV.store.setSpeed(prefs.speed); $('#speed').value = String(prefs.speed); }
 
     BV.initMap($('.mapwrap'));
@@ -57,6 +61,16 @@
     setInterval(() => { tickClock(); BV.store.rollSecond(); }, 1000);
 
     // ---------- top controls ----------
+    const badge = $('#mode-badge');
+    const paintBadge = () => {
+      const fs = BV.live.feeds(), n = fs.filter((f) => f.status === 'live').length;
+      const connecting = fs.some((f) => f.status === 'connecting') && !n;
+      badge.textContent = connecting ? 'CONNECTING' : n ? 'LIVE · ' + n + '/' + fs.length : 'SIMULATED';
+      badge.classList.toggle('live', n > 0);
+    };
+    paintBadge(); setInterval(paintBadge, 1500);
+    $('#tv-btn').onclick = () => BV.explore.openTV();
+    $('#street-btn').onclick = () => BV.explore.viewHere();
     const pauseBtn = $('#pause');
     pauseBtn.onclick = () => BV.store.setPaused();
     BV.bus.on('pause', (p) => {
@@ -108,6 +122,7 @@
     // ---------- keyboard ----------
     document.addEventListener('keydown', (e) => {
       const typing = /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
+      if (BV.explore.isOpen()) { if (e.key === 'Escape') BV.explore.close(); return; }
       if (!help.hidden) { if (e.key === 'Escape') closeHelp(); return; }
       if ((e.key === '/' && !typing) || ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey))) { e.preventDefault(); BV.search.focus(); return; }
       if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -115,6 +130,8 @@
       if (k === ' ') { e.preventDefault(); BV.store.setPaused(); }
       else if (k === 'Escape') { BV.map.stopTour(); BV.map.stopFollow(); BV.store.select(null); BV.store.selectCountry(null); }
       else if (k === '?') openHelp();
+      else if (k === 'b' || k === 'B') BV.explore.openTV();
+      else if (k === 'v' || k === 'V') BV.explore.viewHere();
       else if (k === 't' || k === 'T') actions.tour();
       else if (k === 'g' || k === 'G') actions.mode();
       else if (k === 'h' || k === 'H') actions.home();
@@ -139,7 +156,7 @@
 
     // ---------- splash ----------
     const splash = $('#splash');
-    $('#splash-msg').textContent = 'Linked ' + BV.layers.length + ' feeds · ' + BV.store.total().toLocaleString() + ' entities';
+    $('#splash-msg').textContent = 'Connecting ' + BV.layers.filter((L) => L.live).length + ' live feeds · ' + BV.layers.filter((L) => !L.live).length + ' simulated';
     setTimeout(() => { splash.classList.add('done'); setTimeout(() => splash.remove(), 600); }, 650);
   }
 
