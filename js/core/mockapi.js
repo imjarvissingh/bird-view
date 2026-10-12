@@ -59,6 +59,7 @@
       const now = Date.now();
       const c = ctx();
       for (const layer of BV.layers) {
+        if (layer.live) continue; // real feeds are driven by BV.live
         const feed = feeds.get(layer.id);
         health(feed, now);
         if (feed.status === 'offline') continue;
@@ -79,9 +80,10 @@
       rng,
       feeds,
       start() {
-        for (const layer of BV.layers) feeds.set(layer.id, feedFor(layer));
+        for (const layer of BV.layers) if (!layer.live) feeds.set(layer.id, feedFor(layer));
         // layers that correlate other layers (seedAfter) backfill last
-        const order = BV.layers.filter((l) => !l.seedAfter).concat(BV.layers.filter((l) => l.seedAfter));
+        const sims = BV.layers.filter((l) => !l.live);
+        const order = sims.filter((l) => !l.seedAfter).concat(sims.filter((l) => l.seedAfter));
         for (const layer of order) {
           // backfill: history as if the feed had been running for a while
           const c = ctx();
@@ -104,12 +106,14 @@
       // the physical world keeps moving even when a feed is degraded or offline.
       advance(dtReal) {
         if (BV.store.state.paused) return;
-        const dt = Math.min(0.25, dtReal) * BV.store.state.speed;
+        const real = Math.min(0.25, dtReal);
+        const dt = real * BV.store.state.speed;
         const c = ctx();
         for (const layer of BV.layers) {
           if (!layer.update) continue;
           const recs = BV.store.all(layer.id);
-          for (let i = 0; i < recs.length; i++) layer.update(recs[i], rng, dt, c);
+          const step = layer.live ? real : dt; // real things move in real time
+          for (let i = 0; i < recs.length; i++) layer.update(recs[i], rng, step, c);
         }
       },
       // REST-ish async query with simulated latency
@@ -118,9 +122,9 @@
         const lag = feed ? feed.latency : 60;
         return new Promise((resolve) => {
           setTimeout(() => {
-            if (feed && feed.status === 'offline') return resolve({ ok: false, status: 503, items: [] });
+            if (feed && !feed.live && feed.status === 'offline') return resolve({ ok: false, status: 503, items: [] });
             const items = BV.store.all(layerId).filter(predicate).slice(-limit).reverse();
-            resolve({ ok: true, status: 200, items, latency: lag });
+            resolve({ ok: true, status: 200, items, latency: lag || 1 });
           }, Math.max(10, lag * 0.5));
         });
       },
